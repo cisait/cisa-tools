@@ -41,6 +41,9 @@
     input:focus, select:focus { border-color: var(--red); box-shadow: 0 0 0 3px rgba(134,38,50,0.12); background: #fff; }
     input::placeholder { color: #ccc; }
     .field-hint { font-size: 0.7rem; color: var(--muted); }
+    .locked-field { font-family: 'Barlow', sans-serif; font-size: 0.95rem; padding: 10px 13px; border: 1.5px solid var(--border); border-radius: 7px; background: #eeeeee; color: var(--text); display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: not-allowed; user-select: none; }
+    .locked-field.empty { color: #aaa; }
+    .locked-field svg { color: #999; flex-shrink: 0; }
     .section-sep { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--red); margin-top: 4px; margin-bottom: -4px; }
 
     .logo-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -142,9 +145,12 @@
       <div class="section-sep">Contact</div>
 
       <div class="field">
-        <label>Direct Phone / Cell (optional)</label>
-        <input type="tel" id="direct-phone" placeholder="(704) 555-0123" oninput="updatePreview()" />
-        <span class="field-hint">Leave blank to show only the store number</span>
+        <label>Store Phone</label>
+        <div class="locked-field empty" id="store-phone" aria-readonly="true">
+          <span id="store-phone-text">Select your location below</span>
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        </div>
+        <span class="field-hint">Filled in automatically from your store location</span>
       </div>
 
       <div class="field">
@@ -265,7 +271,7 @@
 
 <script>
 const STORES = [
-  { label: "HQ",                                    address: "7818 Tyner St\nCharlotte, NC 28262", phone: null },
+  { label: "HQ",                                    address: "7818 Tyner St\nCharlotte, NC 28262", phone: "(704) 535-6910" },
   { label: "Store 41 – Charlotte, NC",          address: "216 Eastway Dr.\nCharlotte, NC 28213", phone: "(704) 598-0452" },
   { label: "Store 103 – Columbia, SC",          address: "4414 Devine St.\nColumbia, SC 29205", phone: "(803) 782-9999" },
   { label: "Store 104 – Cayce, SC",             address: "1139 Knox Abbot Dr.\nCayce, SC 29033", phone: "(803) 794-3333" },
@@ -314,8 +320,7 @@ function esc(s) {
 function buildSignatureHTML() {
   const name   = document.getElementById('name').value.trim();
   const title  = document.getElementById('title').value.trim();
-  const dphone = document.getElementById('direct-phone').value.trim();
-  const email  = document.getElementById('email').value.trim();
+  const email = document.getElementById('email').value.trim();
   const quote  = document.getElementById('quote').value.trim();
   const idx    = document.getElementById('location').value;
   const store  = idx !== '' ? STORES[parseInt(idx)] : null;
@@ -328,14 +333,10 @@ function buildSignatureHTML() {
   // Build address using separate <div> blocks per line so Outlook preserves line breaks
   const addrLines  = address ? address.split('\n').filter(l=>l).map(l=>`<div style="margin:0;padding:0;">${esc(l)}</div>`).join('') : '';
 
-  let phonePart = '';
-  if (dphone && storePhone) {
-    phonePart = `<div style="font-size:12px;color:#444;margin-bottom:2px;"><span style="font-weight:700;color:#111;display:inline-block;min-width:62px;">Direct</span>${esc(dphone)}</div><div style="font-size:12px;color:#444;margin-bottom:2px;"><span style="font-weight:700;color:#111;display:inline-block;min-width:62px;">Store</span>${esc(storePhone)}</div>`;
-  } else if (dphone) {
-    phonePart = `<div style="font-size:12px;color:#444;margin-bottom:2px;"><span style="font-weight:700;color:#111;display:inline-block;min-width:62px;">Phone</span>${esc(dphone)}</div>`;
-  } else if (storePhone) {
-    phonePart = `<div style="font-size:12px;color:#444;margin-bottom:2px;"><span style="font-weight:700;color:#111;display:inline-block;min-width:62px;">Phone</span>${esc(storePhone)}</div>`;
-  }
+  // Phone always comes from the store list; it cannot be edited
+  const phonePart = storePhone
+    ? `<div style="font-size:12px;color:#444;margin-bottom:2px;"><span style="font-weight:700;color:#111;display:inline-block;min-width:62px;">Phone</span>${esc(storePhone)}</div>`
+    : '';
 
   // Address block renders the lines in their own cell so newlines survive Outlook paste
   const addressBlock = address ? `<div style="font-size:12px;color:#444;margin-top:4px;"><table cellpadding="0" cellspacing="0" border="0" frame="void" rules="none" style="border-collapse:collapse;border:none;outline:none;mso-table-lspace:0pt;mso-table-rspace:0pt;"><tr><td style="font-weight:700;color:#111;padding-right:8px;vertical-align:top;white-space:nowrap;border:none;outline:none;">Address</td><td style="color:#444;border:none;outline:none;">${addrLines}</td></tr></table></div>` : '';
@@ -357,7 +358,22 @@ function buildSignatureHTML() {
 </table>`;
 }
 
+function updateStorePhone() {
+  const idx   = document.getElementById('location').value;
+  const store = idx !== '' ? STORES[parseInt(idx)] : null;
+  const box   = document.getElementById('store-phone');
+  const text  = document.getElementById('store-phone-text');
+  if (store && store.phone) {
+    text.textContent = store.phone;
+    box.classList.remove('empty');
+  } else {
+    text.textContent = 'Select your location below';
+    box.classList.add('empty');
+  }
+}
+
 function updatePreview() {
+  updateStorePhone();
   const html = buildSignatureHTML();
   const box  = document.getElementById('preview-box');
   if (html) { box.innerHTML = html; }
@@ -392,7 +408,7 @@ async function copyHtml() {
 }
 
 function clearForm() {
-  ['name','title','direct-phone','email','quote'].forEach(id => document.getElementById(id).value = '');
+  ['name','title','email','quote'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('location').value = '';
   updatePreview();
 }
